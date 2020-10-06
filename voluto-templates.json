@@ -1,0 +1,23 @@
+{
+	"version": "2",
+	"templates": [{
+		"type": 2,
+		"title": "Voluto-Engine",
+		"description": "Voluto engine",
+		"note": "Deploys a Voluto engine",
+		"categories": [
+			"Voluto"
+		],
+		"platform": "linux",
+		"logo": "https://s3.voluto.net/static/portainer/voluto_200x200.png",
+		"repository": {
+			"url": "https://github.com/phalms/templates",
+			"stackfile": "stacks/voluto-engine/docker-stack.yml"
+		},
+		"env": [{
+			"name": "SITE_ID",
+			"label": "Site ID",
+			"description": "Site ID. starts with 100000000"
+		}]
+	}]
+}

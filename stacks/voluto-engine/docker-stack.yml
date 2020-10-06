@@ -1,0 +1,161 @@
+version: "3.2"
+services:
+  probe:
+    image: registry.voluto.net:1443/voluto/probe
+    #ports:
+    #  - 18888:8888
+    environment:
+      ZOO: 10.5.0.4:2181,10.5.0.6:2181,10.5.0.7:2181
+      KAFKA: 10.5.0.4:9092,10.5.0.6:9092,10.5.0.7:9092
+      KAFKA_GROUP: ${SITE_ID}-probe
+      ES: http://10.5.0.7:9200
+      #REDIS_CLUSTER: 10.5.0.7:6379,10.5.0.6:6379,10.5.0.4:6379
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "2"
+    deploy:
+      restart_policy:
+        condition: any
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+        - node.labels.engine==true
+      update_config:
+        delay: 2s
+    networks:
+      - backend
+  probe-connect:
+    image: registry.voluto.net:1443/voluto/probe
+    #ports:
+    #  - 18889:8888
+    environment:
+      ZOO: 10.5.0.4:2181,10.5.0.6:2181,10.5.0.7:2181
+      KAFKA: 10.5.0.4:9092,10.5.0.6:9092,10.5.0.7:9092
+      KAFKA_GROUP: ${SITE_ID}-connect
+      ES: http://10.5.0.7:9200
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "2"
+    deploy:
+      restart_policy:
+        condition: any
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+        - node.labels.engine==true
+      update_config:
+        delay: 2s
+    networks:
+      - backend
+  probe-es:
+    image: registry.voluto.net:1443/voluto/probe
+    #ports:
+    #  - 18889:8888
+    environment:
+      ZOO: 10.5.0.4:2181,10.5.0.6:2181,10.5.0.7:2181
+      KAFKA: 10.5.0.4:9092,10.5.0.6:9092,10.5.0.7:9092
+      KAFKA_GROUP: ${SITE_ID}-es
+      ES: http://10.5.0.7:9200
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "2"
+    deploy:
+      restart_policy:
+        condition: any
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+        - node.labels.engine==true
+      update_config:
+        delay: 2s
+    networks:
+      - backend
+  relay:
+    image: registry.voluto.net:1443/voluto/relay
+    #ports:
+    #  - 18889:8888
+    environment:
+      VOLUTO_JDBC_URL: "jdbc:mysql://voluto.sldb.iwinv.net:3306/VOLUTO"
+      VOLUTO_JDBC_USER: "volluto"
+      VOLUTO_JDBC_PASSWORD: "volluto!q2w3e4r"
+      VOLUTO_COMMON_COOKIES: "SERVERUSED,probe1"
+      VOLUTO_AUTH_USERNAME: "clientId"
+      VOLUTO_AUTH_PASSWORD: "secret"
+      VOLUTO_AUTH_URL: "http://signal_signal:7777/api/users/authenticate"
+      VOLUTO_PUBLISH_HEADER: "Authorization,Bearer {token}"
+      VOLUTO_PUBLISH_URL: "http://signal_signal:7777/api/push/publish"
+    deploy:
+      restart_policy:
+        condition: any
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+        - node.labels.engine==true
+      update_config:
+        delay: 2s
+    networks:
+      - backend
+      - frontend
+      
+  eba:
+    image: registry.voluto.net:1443/voluto/eba
+    #ports:
+    #  - 18888:8888
+    environment:
+      EBA_ZOOKEEPER: 10.5.0.7:2181
+      EBA_KAFKA: 10.5.0.7:9092
+      EBA_SITE: ${SITE_ID}
+      EBA_REDISCLUSTER: redis://10.5.0.7:6379,redis://10.5.0.6:6379,redis://10.5.0.4:6379
+    deploy:
+      restart_policy:
+        condition: any
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+        - node.labels.engine==true
+      update_config:
+        delay: 2s
+    networks:
+      - backend
+      
+  log2conversion:
+    image: registry.voluto.net:1443/voluto/log2conversion
+    command: >
+      -daemonSleep 60000
+      -redisHost 10.5.0.4:6379,10.5.0.6:6379,10.5.0.7:6379 -redisConfigField ${SITE_ID}
+      -esHost http://10.5.0.4:9200,http://10.5.0.6:9200,http://10.5.0.7:9200
+      -esQueryIndics "voluto-probe-%v.nexus-*" -esQuerySize 1024
+      -esQueryTimeKey accessTime -esQuerySessionKey userId -esQuerySessionPeriod 3600
+      -esQueryFilterKey "param.pageId" -esQueryConvertField "userId,memberId"
+      -esTargetHost http://10.5.0.4:9200,http://10.5.0.6:9200,http://10.5.0.7:9200
+      -esTargetIndics "voluto-probe-%v.react" -esTargetBulkSize 1024
+      -expireHmKey "Session,EventAck"
+    deploy:
+      restart_policy:
+        condition: any
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.engine==true
+      update_config:
+        delay: 2s
+    networks:
+      - backend
+
+networks:
+  backend:
+    external: true
+  frontend:
+    external: true
